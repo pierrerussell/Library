@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using Library.Blazor.Components;
 using Library.Blazor.Components.Account;
 using Library.Blazor.Data;
+using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +39,10 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
     .AddDefaultTokenProviders();
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
+
+// UI Stuff
+builder.Services.AddMudServices();
+builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(App).Assembly));
 
 var app = builder.Build();
 

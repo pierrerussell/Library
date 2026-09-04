@@ -18,6 +18,11 @@
         <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" Version="10.0.8"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8" PrivateAssets="all"/>
         <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.8"/>
+        <PackageReference Include="MudBlazor" Version="9.9.0" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Library.Application\Library.Application.csproj" />
     </ItemGroup>
 
 </Project>
