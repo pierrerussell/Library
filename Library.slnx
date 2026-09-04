@@ -1,3 +1,5 @@
 <Solution>
+  <Project Path="Library.Application/Library.Application.csproj" />
   <Project Path="Library.Blazor/Library.Blazor.csproj" />
+  <Project Path="Library.Domain/Library.Domain.csproj" />
 </Solution>
