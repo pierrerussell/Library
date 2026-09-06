@@ -1,0 +1,29 @@
+﻿@page "/admin/members"
+@attribute [Authorize(Roles = "Admin")]
+@using System.Drawing
+@using Library.Domain.Members
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@inject IMemberRepository MemberRepository
+
+<MudText Typo="Typo.h4" Class="mb-4">Members</MudText>
+
+<MudTable Items="@members" Hover="true">
+    <HeaderContent>
+        <MudTh>Name</MudTh>
+        <MudTh>Email</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="Email">@context.Email</MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private List<Member> members = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        members = await MemberRepository.GetAllAsync();
+    }
+}
