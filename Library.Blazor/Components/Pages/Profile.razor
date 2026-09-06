@@ -1,0 +1,59 @@
+﻿@page "/profile"
+@using Library.Domain.Members
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@attribute [Authorize]
+@inject IMemberRepository MemberRepository
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@rendermode InteractiveServer 
+
+<MudText Typo="Typo.h4" Class="mb-4">My Profile</MudText>
+
+@if (member is not null)
+{
+    <MudPaper Class="pa-4" Elevation="2">
+        @* <MudTextField @bind-Value="member.Name" Label="Name" Disabled="true" /> *@
+        @* <MudTextField @bind-Value="member.Email" Label="Email" Disabled="true" /> *@
+        @* *@
+        <MudText>@member.Name </MudText>
+        <MudText>@member.Email </MudText>
+
+        <MudText Typo="Typo.subtitle1" Class="mt-4">Interests</MudText>
+        @foreach (var interest in member.Interests)
+        {
+            <MudChip T="string" OnClose="@(() => RemoveInterest(interest))">@interest</MudChip>
+        }
+        <MudTextField @bind-Value="newInterest" Label="Add interest" Immediate="true"
+                      OnKeyDown="@(async e => { if (e.Key == "Enter") await AddInterest(); })" />
+        <MudButton Variant="Variant.Filled" Class="mt-2" OnClick="@AddInterest">Add</MudButton>
+    </MudPaper>
+}
+@code {
+    private Member? member;
+    private string newInterest = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        var identityUserId = Guid.Parse(authState.User.FindFirst(c => c.Type == "sub"
+        || c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+        member = await MemberRepository.GetByIdentityUserIdAsync(identityUserId);
+        
+        
+    }
+    private async Task AddInterest()
+    {
+        if (string.IsNullOrWhiteSpace(newInterest) || member is null) return;
+        Console.WriteLine(newInterest);
+        member.AddInterest(newInterest);
+        await MemberRepository.SaveChangesAsync();
+        newInterest = "";
+    }
+    
+    private async Task RemoveInterest(string interest)
+    {
+        if (member is null) return;
+        member.RemoveInterest(interest);
+        await MemberRepository.SaveChangesAsync();
+    }
+}

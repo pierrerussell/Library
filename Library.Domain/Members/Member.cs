@@ -8,7 +8,7 @@ public class Member : AggregateRoot
     public string Name { get; private set; } = string.Empty;
     public string Email { get; private set; } = string.Empty;
 
-    private readonly List<string> _interests = new();
+    private List<string> _interests = new();
     public IReadOnlyCollection<string> Interests => _interests.AsReadOnly();
     
     private Member() { }
@@ -19,8 +19,17 @@ public class Member : AggregateRoot
         Email = email;
     }
     
-    public void AddInterest(string interest) => _interests.Add(interest);
-    public void RemoveInterest(string interest) => _interests.Remove(interest);
+    public void AddInterest(string interest)
+    {
+        _interests = _interests.Append(interest).ToList();
+    }
+
+    public void RemoveInterest(string interest)
+    {
+        _interests = _interests
+            .Where(x => x != interest)
+            .ToList();
+    }
     
     public void UpdateName(string name) => Name = name;
     public void UpdateEmail(string email) => Email = email;
