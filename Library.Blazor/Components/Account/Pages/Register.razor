@@ -3,9 +3,11 @@
 @using System.ComponentModel.DataAnnotations
 @using System.Text
 @using System.Text.Encodings.Web
+@using Library.Application.Members
 @using Microsoft.AspNetCore.Identity
 @using Microsoft.AspNetCore.WebUtilities
 @using Library.Blazor.Data
+@using MediatR
 
 @inject UserManager<ApplicationUser> UserManager
 @inject IUserStore<ApplicationUser> UserStore
@@ -14,6 +16,7 @@
 @inject ILogger<Register> Logger
 @inject NavigationManager NavigationManager
 @inject IdentityRedirectManager RedirectManager
+@inject IMediator Mediator
 
 <PageTitle>Register</PageTitle>
 
@@ -82,6 +85,11 @@
             identityErrors = result.Errors;
             return;
         }
+        
+        await UserManager.AddToRoleAsync(user, "Member");
+        
+        await Mediator.Send(new CreateMemberCommand(Guid.Parse(user.Id), "Member", Input.Email));
+        
 
         Logger.LogInformation("User created a new account with password.");
 

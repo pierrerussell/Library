@@ -1,9 +1,13 @@
+using Library.Application.Members;
 using Microsoft.AspNetCore.Components.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Library.Blazor.Components;
 using Library.Blazor.Components.Account;
 using Library.Blazor.Data;
+using Library.Blazor.Data.Repositories.Members;
+using Library.Domain.Members;
+using MediatR;
 using MudBlazor.Services;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -34,17 +38,50 @@ builder.Services.AddIdentityCore<ApplicationUser>(options =>
         options.SignIn.RequireConfirmedAccount = true;
         options.Stores.SchemaVersion = IdentitySchemaVersions.Version3;
     })
+    .AddRoles<IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddSignInManager()
-    .AddDefaultTokenProviders();
+    .AddDefaultTokenProviders()
+    ;
 
 builder.Services.AddSingleton<IEmailSender<ApplicationUser>, IdentityNoOpEmailSender>();
 
 // UI Stuff
 builder.Services.AddMudServices();
-builder.Services.AddMediatR(cfg => cfg.RegisterServicesFromAssembly(typeof(App).Assembly));
+builder.Services.AddMediatR(cfg => 
+    cfg.RegisterServicesFromAssembly(typeof(CreateMemberHandler).Assembly));
+
+//App Specific
+builder.Services.AddScoped<IMemberRepository, MemberRepository>();
 
 var app = builder.Build();
+
+// Seed initial user and roles
+using (var scope = app.Services.CreateScope())
+{
+    var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
+    var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+    var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
+
+    foreach (var role in new[] { "Admin", "Member" })
+    {
+        var roleExists = await roleManager.RoleExistsAsync(role);
+        if (!roleExists)
+        {
+            await roleManager.CreateAsync(new IdentityRole(role));
+        }
+    }
+
+    var adminEmail = "admin@gmail.com";
+    var admin = await userManager.FindByEmailAsync(adminEmail);
+    if (admin is null)
+    {
+        admin = new ApplicationUser { UserName = adminEmail, Email = adminEmail };
+        await userManager.CreateAsync(admin, "Password123!");
+        await userManager.AddToRoleAsync(admin, "Admin");
+        await mediator.Send(new CreateMemberCommand(Guid.Parse(admin.Id), "Admin", adminEmail));
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
