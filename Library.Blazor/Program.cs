@@ -5,7 +5,9 @@ using Microsoft.EntityFrameworkCore;
 using Library.Blazor.Components;
 using Library.Blazor.Components.Account;
 using Library.Blazor.Data;
+using Library.Blazor.Data.Repositories.Books;
 using Library.Blazor.Data.Repositories.Members;
+using Library.Domain.Books;
 using Library.Domain.Members;
 using MediatR;
 using MudBlazor.Services;
@@ -53,7 +55,7 @@ builder.Services.AddMediatR(cfg =>
 
 //App Specific
 builder.Services.AddScoped<IMemberRepository, MemberRepository>();
-
+builder.Services.AddScoped<IBookRepository, BookRepository>();
 var app = builder.Build();
 
 // Seed initial user and roles

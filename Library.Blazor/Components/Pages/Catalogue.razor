@@ -1,0 +1,113 @@
+﻿@page "/catalogue"
+@using Library.Application.Books
+@using Library.Domain.Books
+@using MediatR
+@using MudBlazor
+@rendermode InteractiveServer
+@inject IBookRepository BookRepository
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+
+
+
+<MudText Typo="Typo.h4" Class="mb-4">Book Catalogue</MudText>
+
+<MudTextField Value="searchTerm" Label="Search title/author/genre" Immediate="true"
+              ValueChanged="@(async (string search) =>
+                            {
+                                searchTerm = search;
+                                await Filter();
+                            })" Class="mb-4"></MudTextField>
+
+<AuthorizeView Roles="Admin">
+    <Authorized>
+        <MudPaper Class="pa-4 mb-6" Elevation="2">
+            <MudText Typo="Typo.h6" Class="mb=2">Add a Book</MudText>
+            <MudForm @ref="form">
+                <MudTextField @bind-Value="newBookForm.Title" Label="Title" Required="true" />
+                <MudTextField @bind-Value="newBookForm.Author" Label="Author" Required="true" />
+                <MudTextField @bind-Value="newBookForm.Genre" Label="Genre" Required="true" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="@AddBook">Add Book</MudButton>
+            </MudForm>
+        </MudPaper>
+    </Authorized>
+</AuthorizeView>
+
+<MudTable Items="@filteredBooks" Hover="true" Loading="@loading">
+    <HeaderContent>
+        <MudTh>Title</MudTh>
+        <MudTh>Author</MudTh>
+        <MudTh>Genre</MudTh>
+        <MudTh>Available</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Title">@context.Title</MudTd>
+        <MudTd DataLabel="Author">@context.Author</MudTd>
+        <MudTd DataLabel="Genre">@context.Genre</MudTd>
+        <MudTd DataLabel="Available">@context.Copies.Count(c => c.Status == BookCopyStatus.Available) / @context.Copies.Count</MudTd>
+        <MudTd>
+            <AuthorizeView Roles="Admin" Context="adminCtx">
+                <Authorized>
+                    <MudButton Size="Size.Small" OnClick="@(async () => await AddCopy(@context.Id))">Add Copy</MudButton>
+                </Authorized>
+            </AuthorizeView>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private List<Book> allBooks = new();
+    private List<Book> filteredBooks = new();
+    private string searchTerm = string.Empty;
+    private bool loading = true;
+    private MudForm? form;
+    private BookForm newBookForm = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        allBooks = await BookRepository.GetAllAsync();
+        filteredBooks = allBooks;
+        loading = false;
+    }
+    private Task Filter()
+    {
+        filteredBooks =
+            string.IsNullOrWhiteSpace(searchTerm)
+                ? allBooks
+                : allBooks.Where(b => b.Title.Contains(searchTerm) ||
+                                      b.Author.Contains(searchTerm) ||
+                                      b.Genre.Contains(searchTerm)).ToList();
+        return Task.CompletedTask;
+    }
+
+    private async Task AddBook()
+    {
+        await form!.ValidateAsync();
+        if (!form!.IsValid) return;
+        
+        await Mediator.Send(new AddBookCommand(newBookForm.Title, newBookForm.Author, newBookForm.Genre));
+        Snackbar.Add("Book added successfully", Severity.Success);
+        allBooks = await BookRepository.GetAllAsync();
+        await form.ResetAsync();
+        newBookForm = new();
+        await Filter();
+    }
+
+    private async Task AddCopy(Guid bookId)
+    {
+        await Mediator.Send(new AddCopyCommand(bookId));
+        Snackbar.Add("Copy added successfully", Severity.Success);
+        allBooks = await BookRepository.GetAllAsync();
+        await Filter();
+    }
+
+    private class BookForm
+    {
+        public string Title { get; set; } = string.Empty;
+        public string Author { get; set; } = string.Empty;
+        public string Genre { get; set; } = string.Empty;
+    }
+    
+
+}

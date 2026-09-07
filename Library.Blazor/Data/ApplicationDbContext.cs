@@ -1,3 +1,4 @@
+using Library.Domain.Books;
 using Library.Domain.Members;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -8,6 +9,7 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     : IdentityDbContext<ApplicationUser>(options)
 {
     public DbSet<Member> Members => Set<Member>();
+    public DbSet<Book> Books => Set<Book>();
     
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -31,7 +33,42 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
             b.Metadata.FindProperty("_interests")!
                 .SetPropertyAccessMode(PropertyAccessMode.Field);
         });
-        
-        
+
+        builder.Entity<Book>(b =>
+        {
+            b.ToTable("Books");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Title)
+                .IsRequired()
+                .HasMaxLength(255);
+            b.Property(x => x.Author)
+                .IsRequired()
+                .HasMaxLength(255);
+            b.Property(x => x.Genre)
+                .IsRequired()
+                .HasMaxLength(255);
+            
+            b.Metadata.FindNavigation(nameof(Book.Copies))!
+                .SetPropertyAccessMode(PropertyAccessMode.Field);
+            
+            b.HasMany(x => x.Copies)
+                .WithOne()
+                .HasForeignKey(x => x.BookId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        builder.Entity<BookCopy>(b =>
+        {
+            b.ToTable("BookCopies");
+            b.HasKey(x => x.Id);
+            b.Property(x => x.Id) .ValueGeneratedNever();
+            b.Property(x => x.Status)
+                .IsRequired()
+                .HasConversion<string>()
+                .HasMaxLength(255);
+            b.Property(x => x.BookId)
+                .IsRequired();
+        });
+
     }
 }
