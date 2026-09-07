@@ -1,0 +1,56 @@
+﻿@page "/loan-policy"
+@using Library.Application.Loans
+@using Library.Domain.Loans
+@using MediatR
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@attribute [Authorize(Roles = "Admin")]
+@inject ILoanPolicyRepository LoanPolicyRepository
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+
+<MudText Typo="Typo.h4" Class="mb-4">Loan Settings</MudText>
+
+<MudPaper Class="pa-4 mb-6" Elevation="2">
+    <MudText Typo="Typo.h6" Class="mb-2">Add New Policy Version</MudText>
+    <MudNumericField @bind-Value="loanPeriodDays" Label="Loan period (days)" Min="1" />
+    <MudNumericField @bind-Value="lateFeePerDay" Label="Late fee per day" Format="F2" Min="0" />
+    <MudDatePicker @bind-Date="validFrom" Label="Valid from" />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3" OnClick="Save">
+        Add New Version
+    </MudButton>
+</MudPaper>
+
+<MudText Typo="Typo.h6" Class="mb-2">History</MudText>
+<MudTable Items="@history" Hover="true">
+    <HeaderContent>
+        <MudTh>Valid From</MudTh>
+        <MudTh>Loan Period (days)</MudTh>
+        <MudTh>Late Fee / Day</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.ValidFrom.DateTime.ToShortDateString()</MudTd>
+        <MudTd>@context.LoanPeriodDays</MudTd>
+        <MudTd>@context.LateFeePerDay.ToString("F2")</MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private int loanPeriodDays = 14;
+    private decimal lateFeePerDay = 0.50m;
+    private DateTime? validFrom = DateTime.Today;
+    private List<Domain.Loans.LoanPolicy> history = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        history = await LoanPolicyRepository.GetAllAsync();
+        
+    }
+
+    private async Task Save()
+    {
+        await Mediator.Send(new AddLoanPolicyCommand(loanPeriodDays, lateFeePerDay, validFrom ?? DateTime.Today));
+        Snackbar.Add("New lending policy version added", Severity.Success);
+        history = await LoanPolicyRepository.GetAllAsync();
+    }
+}

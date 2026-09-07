@@ -1,14 +1,17 @@
 ﻿@page "/catalogue"
+@using System.Security.Claims
 @using Library.Application.Books
+@using Library.Application.Loans
 @using Library.Domain.Books
+@using Library.Domain.Members
 @using MediatR
 @using MudBlazor
 @rendermode InteractiveServer
 @inject IBookRepository BookRepository
 @inject IMediator Mediator
 @inject ISnackbar Snackbar
-
-
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IMemberRepository MemberRepository
 
 <MudText Typo="Typo.h4" Class="mb-4">Book Catalogue</MudText>
 
@@ -40,12 +43,23 @@
         <MudTh>Genre</MudTh>
         <MudTh>Available</MudTh>
         <MudTh></MudTh>
+        <MudTh></MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="Title">@context.Title</MudTd>
         <MudTd DataLabel="Author">@context.Author</MudTd>
         <MudTd DataLabel="Genre">@context.Genre</MudTd>
         <MudTd DataLabel="Available">@context.Copies.Count(c => c.Status == BookCopyStatus.Available) / @context.Copies.Count</MudTd>
+        <MudTd>
+            <AuthorizeView Context="borrowCtx">
+                <Authorized>
+                    @if (context.HasAvailableCopy())
+                    {
+                        <MudButton Size="Size.Small" OnClick="@(async () => await Borrow(context.Id))">Borrow</MudButton> 
+                    }
+                </Authorized>
+            </AuthorizeView>
+        </MudTd>
         <MudTd>
             <AuthorizeView Roles="Admin" Context="adminCtx">
                 <Authorized>
@@ -100,6 +114,17 @@
         Snackbar.Add("Copy added successfully", Severity.Success);
         allBooks = await BookRepository.GetAllAsync();
         await Filter();
+    }
+
+    private async Task Borrow(Guid bookId)
+    {
+        var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+        var identityUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (identityUserId is null)
+            throw new InvalidOperationException("User is not authenticated.");
+        var member = await MemberRepository.GetByIdentityUserIdAsync(Guid.Parse(identityUserId)); 
+        
+        await Mediator.Send(new CheckoutBookCommand(bookId, member!.Id));
     }
 
     private class BookForm

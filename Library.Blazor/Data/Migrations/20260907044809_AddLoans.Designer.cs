@@ -3,6 +3,7 @@ using System;
 using Library.Blazor.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace Library.Blazor.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260907044809_AddLoans")]
+    partial class AddLoans
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.8");
@@ -137,14 +140,14 @@ namespace Library.Blazor.Migrations
                     b.Property<Guid>("BookId")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("CheckoutDate")
-                        .HasColumnType("INTEGER");
+                    b.Property<DateTimeOffset>("CheckoutDate")
+                        .HasColumnType("TEXT");
 
                     b.Property<Guid>("CopyId")
                         .HasColumnType("TEXT");
 
-                    b.Property<long>("DueDate")
-                        .HasColumnType("INTEGER");
+                    b.Property<DateTimeOffset>("DueDate")
+                        .HasColumnType("TEXT");
 
                     b.Property<decimal>("LateFeePerDay")
                         .HasColumnType("TEXT");
@@ -176,8 +179,8 @@ namespace Library.Blazor.Migrations
                     b.Property<int>("LoanPeriodDays")
                         .HasColumnType("INTEGER");
 
-                    b.Property<long>("ValidFrom")
-                        .HasColumnType("INTEGER");
+                    b.Property<DateTimeOffset>("ValidFrom")
+                        .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 

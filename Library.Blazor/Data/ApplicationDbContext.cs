@@ -1,4 +1,5 @@
 using Library.Domain.Books;
+using Library.Domain.Loans;
 using Library.Domain.Members;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
 {
     public DbSet<Member> Members => Set<Member>();
     public DbSet<Book> Books => Set<Book>();
+    public DbSet<LoanPolicy> LoanPolicies => Set<LoanPolicy>();
+    public DbSet<Loan> Loans => Set<Loan>();
     
     protected override void OnModelCreating(ModelBuilder builder)
     {
@@ -70,5 +73,51 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .IsRequired();
         });
 
+        builder.Entity<LoanPolicy>(b =>
+        {
+            b.ToTable("LoanPolicies");
+            b.HasKey(p => p.Id);
+            b.Property(p => p.LoanPeriodDays)
+                .IsRequired();
+            b.Property(p => p.LateFeePerDay)
+                .IsRequired()
+                .HasColumnType("DECIMAL(18,2)");
+            b.Property(p => p.ValidFrom)
+                .HasConversion(
+                    value => value.ToUnixTimeMilliseconds(),
+                    value => DateTimeOffset.FromUnixTimeMilliseconds(value))
+                .IsRequired();
+            b.HasIndex(p => p.ValidFrom);
+
+        });
+
+        builder.Entity<Loan>(b =>
+        {
+            b.ToTable("Loans");
+            b.HasKey(l => l.Id);
+            b.Property(l => l.CopyId)
+                .IsRequired();
+            b.Property(l => l.BookId)
+                .IsRequired();
+            b.Property(l => l.MemberId)
+                .IsRequired();
+            b.Property(l => l.CheckoutDate)
+                .HasConversion(
+                    value => value.ToUnixTimeMilliseconds(),
+                    value => DateTimeOffset.FromUnixTimeMilliseconds(value))
+                .IsRequired();
+            b.Property(l => l.DueDate)
+                .HasConversion(
+                    value => value.ToUnixTimeMilliseconds(),
+                    value => DateTimeOffset.FromUnixTimeMilliseconds(value))
+                .IsRequired();
+            b.Property(l => l.Status)
+                .IsRequired()
+                .HasConversion<string>();
+            b.Ignore(l => l.DomainEvents);
+        });
+
     }
+    
+    
 }

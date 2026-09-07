@@ -1,0 +1,81 @@
+﻿@page "/my-loans"
+@using Library.Application.Loans
+@using Library.Blazor.Data.Repositories.Loans
+@using Library.Domain.Loans
+@using Library.Domain.Members
+@using MediatR
+@using MudBlazor
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IMemberRepository MemberRepository
+@inject ILoanRepository LoanRepository
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
+<MudText Typo="Typo.h4" Class="mb-4">My Loans</MudText>
+
+<MudTable Items="@loans" Hover="true">
+    <HeaderContent>
+        <MudTh>Checked out</MudTh>
+        <MudTh>Due</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh>Late Fee</MudTh>
+        <MudTh></MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@context.CheckoutDate.DateTime.ToShortDateString()</MudTd>
+        <MudTd>@context.DueDate.DateTime.ToShortDateString()</MudTd>
+        <MudTd>
+            <MudChip T="string" Color="@StatusColor(context.Status)">@context.Status</MudChip>
+        </MudTd>
+        <MudTd>@context.CalculateLateFee(DateTimeOffset.UtcNow)</MudTd>
+        <MudTd>
+            @if (context.Status != LoanStatus.Returned)
+            {
+                <MudButton Size="Size.Small" OnClick="@(async () => await Return(context.Id))">Return</MudButton>
+            }
+        </MudTd>
+        
+    </RowTemplate>
+
+</MudTable>
+
+
+@code {
+    private List<Loan> loans = new();
+    private Guid memberId;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync(); 
+        var userIdClaim = authState.User.FindFirst( System.Security.Claims.ClaimTypes.NameIdentifier);
+        if (userIdClaim is null || !Guid.TryParse(userIdClaim.Value, out var identityUserId))
+        {
+            throw new InvalidOperationException("Authenticated user ID could not be found.");
+        } 
+        var member = await MemberRepository.GetByIdentityUserIdAsync(identityUserId);
+        if (member is null)
+        {
+            throw new InvalidOperationException( $"No library member exists for Identity user {identityUserId}.");
+        } 
+        memberId = member.Id; 
+        loans = await LoanRepository.GetByMemberIdAsync(memberId);
+        
+    }
+
+    private async Task Return(Guid loanId)
+    {
+        var fee = await Mediator.Send(new ReturnBookCommand(loanId));
+        Snackbar.Add( $"Fee: ${fee.Amount}");
+        loans = await LoanRepository.GetByMemberIdAsync(memberId);
+    }
+
+    private static Color StatusColor(LoanStatus status)
+    {
+        return status switch
+        {
+            LoanStatus.Active => Color.Success,
+            LoanStatus.Overdue => Color.Error,
+            LoanStatus.Returned => Color.Info,
+            _ => Color.Default,
+        };
+    }
+}
