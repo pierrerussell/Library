@@ -1,6 +1,8 @@
 ﻿@page "/my-loans"
 @using Library.Application.Loans
+@using Library.Application.Members
 @using Library.Blazor.Data.Repositories.Loans
+@using Library.Domain.Books
 @using Library.Domain.Loans
 @using Library.Domain.Members
 @using MediatR
@@ -10,30 +12,45 @@
 @inject ILoanRepository LoanRepository
 @inject IMediator Mediator
 @inject ISnackbar Snackbar
+@inject IPaymentRepository PaymentRepository
+@inject IBookRepository BookRepository
 <MudText Typo="Typo.h4" Class="mb-4">My Loans</MudText>
 
 <MudTable Items="@loans" Hover="true">
     <HeaderContent>
+        <MudTh>Book</MudTh>
         <MudTh>Checked out</MudTh>
         <MudTh>Due</MudTh>
         <MudTh>Status</MudTh>
         <MudTh>Late Fee</MudTh>
+        <MudTh>Outstanding Fee</MudTh>
+        <MudTh></MudTh>
         <MudTh></MudTh>
     </HeaderContent>
     <RowTemplate>
+        <MudTd>
+            @booksById.GetValueOrDefault(context.BookId)?.Title
+        </MudTd>
         <MudTd>@context.CheckoutDate.DateTime.ToShortDateString()</MudTd>
         <MudTd>@context.DueDate.DateTime.ToShortDateString()</MudTd>
         <MudTd>
             <MudChip T="string" Color="@StatusColor(context.Status)">@context.Status</MudChip>
         </MudTd>
         <MudTd>@context.CalculateLateFee(DateTimeOffset.UtcNow)</MudTd>
+        <MudTd>@OutstandingFee(context)</MudTd>
         <MudTd>
             @if (context.Status != LoanStatus.Returned)
             {
-                <MudButton Size="Size.Small" OnClick="@(async () => await Return(context.Id))">Return</MudButton>
+                <MudButton Size="Size.Small" OnClick="@(() => Return(context.Id))">Return</MudButton>
             }
         </MudTd>
-        
+        <MudTd>
+            <MudButton Size="Size.Small" Color="Color.Warning" OnClick="@(() => PayFee(context.Id))"
+                       Disabled="@(OutstandingFee(context) <= 0 || context.Status == LoanStatus.Returned)">
+                Pay Fee
+            </MudButton>
+        </MudTd>
+
     </RowTemplate>
 
 </MudTable>
@@ -42,6 +59,8 @@
 @code {
     private List<Loan> loans = new();
     private Guid memberId;
+    private Dictionary<Guid, decimal> paymentsByLoan = new();
+    private Dictionary<Guid, Book> booksById = new();
 
     protected override async Task OnInitializedAsync()
     {
@@ -57,15 +76,65 @@
             throw new InvalidOperationException( $"No library member exists for Identity user {identityUserId}.");
         } 
         memberId = member.Id; 
-        loans = await LoanRepository.GetByMemberIdAsync(memberId);
+        await LoadLoans();
         
+        
+    }
+    private async Task LoadLoans()
+    {
+        var books = await BookRepository.GetAllAsync();
+        booksById = books.ToDictionary(b => b.Id);
+
+        loans = await LoanRepository.GetByMemberIdAsync(memberId);
+
+        paymentsByLoan = new();
+
+        foreach (var loan in loans)
+        {
+            var payments = await PaymentRepository.GetByLoanIdAsync(loan.Id);
+
+            paymentsByLoan[loan.Id] = payments.Sum(p => p.Amount.Amount);
+        }
     }
 
     private async Task Return(Guid loanId)
     {
-        var fee = await Mediator.Send(new ReturnBookCommand(loanId));
-        Snackbar.Add( $"Fee: ${fee.Amount}");
-        loans = await LoanRepository.GetByMemberIdAsync(memberId);
+        try
+        {
+            var fee = await Mediator.Send(new ReturnBookCommand(loanId));
+            Snackbar.Add($"Fee: ${fee.Amount}");
+            loans = await LoanRepository.GetByMemberIdAsync(memberId);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+
+    }
+
+    private async Task PayFee(Guid loanId)
+    {
+        try
+        {
+            await Mediator.Send(new RecordPaymentCommand(memberId, loanId));
+            Snackbar.Add($"Paid outstanding amount");
+            loans = await LoanRepository.GetByMemberIdAsync(memberId);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+
+        
+    }
+    
+    private decimal OutstandingFee(Loan loan)
+    {
+        var lateFee = loan.CalculateLateFee(DateTimeOffset.UtcNow).Amount;
+
+        paymentsByLoan.TryGetValue(loan.Id, out var paid);
+
+        return Math.Max(0, lateFee - paid);
     }
 
     private static Color StatusColor(LoanStatus status)
@@ -78,4 +147,7 @@
             _ => Color.Default,
         };
     }
+    
+
+
 }

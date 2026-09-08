@@ -14,6 +14,9 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<LoanPolicy> LoanPolicies => Set<LoanPolicy>();
     public DbSet<Loan> Loans => Set<Loan>();
     
+    public DbSet<Payment> Payments => Set<Payment>();
+
+    
     protected override void OnModelCreating(ModelBuilder builder)
     {
         base.OnModelCreating(builder);
@@ -115,6 +118,25 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                 .IsRequired()
                 .HasConversion<string>();
             b.Ignore(l => l.DomainEvents);
+        });
+
+        builder.Entity<Payment>(b =>
+        {
+            b.ToTable("Payments");
+            b.HasKey(p => p.Id);
+            b.Property(p => p.MemberId)
+                .IsRequired();
+            b.OwnsOne(p => p.Amount, a =>
+            {
+                a.Property(m => m.Amount).HasColumnName("Amount").HasColumnType("DECIMAL(10,2)");
+            });
+            b.Property(p => p.Description)
+                .IsRequired();
+            b.Property(p => p.Date)
+                .HasConversion(
+                    value => value.ToUnixTimeMilliseconds(),
+                    value => DateTimeOffset.FromUnixTimeMilliseconds(value))
+                .IsRequired();
         });
 
     }

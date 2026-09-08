@@ -118,13 +118,20 @@
 
     private async Task Borrow(Guid bookId)
     {
-        var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
-        var identityUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        if (identityUserId is null)
-            throw new InvalidOperationException("User is not authenticated.");
-        var member = await MemberRepository.GetByIdentityUserIdAsync(Guid.Parse(identityUserId)); 
-        
-        await Mediator.Send(new CheckoutBookCommand(bookId, member!.Id));
+        try
+        {
+            var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+            var identityUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (identityUserId is null)
+                throw new InvalidOperationException("User is not authenticated.");
+            var member = await MemberRepository.GetByIdentityUserIdAsync(Guid.Parse(identityUserId));
+
+            await Mediator.Send(new CheckoutBookCommand(bookId, member!.Id));
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
     }
 
     private class BookForm

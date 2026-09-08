@@ -60,11 +60,13 @@ builder.Services.AddScoped<IMemberRepository, MemberRepository>();
 builder.Services.AddScoped<IBookRepository, BookRepository>();
 builder.Services.AddScoped<ILoanPolicyRepository, LoanPolicyRepository>();
 builder.Services.AddScoped<ILoanRepository, LoanRepository>();
+builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
 var app = builder.Build();
 
-// Seed initial user and roles
+
 using (var scope = app.Services.CreateScope())
 {
+    // Seed initial user and roles
     var roleManager = scope.ServiceProvider.GetRequiredService<RoleManager<IdentityRole>>();
     var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
     var mediator = scope.ServiceProvider.GetRequiredService<IMediator>();
@@ -86,6 +88,14 @@ using (var scope = app.Services.CreateScope())
         await userManager.CreateAsync(admin, "Password123!");
         await userManager.AddToRoleAsync(admin, "Admin");
         await mediator.Send(new CreateMemberCommand(Guid.Parse(admin.Id), "Admin", adminEmail));
+    }
+    
+    //Seed initial loan policy
+    var context = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+    if (!context.LoanPolicies.Any())
+    {
+        await context.LoanPolicies.AddAsync(new LoanPolicy(14, 1, DateTimeOffset.UtcNow));
+        await context.SaveChangesAsync();
     }
 }
 
