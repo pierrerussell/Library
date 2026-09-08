@@ -125,6 +125,7 @@
             await Mediator.Send(new RecordPaymentCommand(memberId, loanId));
             Snackbar.Add($"Paid outstanding amount");
             loans = await LoanRepository.GetByMemberIdAsync(memberId);
+            StateHasChanged();
         }
         catch (InvalidOperationException ex)
         {

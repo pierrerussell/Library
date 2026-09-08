@@ -19,6 +19,19 @@ public class LoanRepository : ILoanRepository
 
     public async Task<List<Loan>> GetByMemberIdAsync(Guid memberId)
     {
+        var loans = await _context.Loans.Where(l => l.MemberId == memberId).ToListAsync();
+        foreach (var loan in loans)
+        {
+            if (loan.Status == LoanStatus.Overdue || loan.Status == LoanStatus.Returned)
+                continue;
+            if (loan.DueDate < DateTimeOffset.UtcNow)
+            {
+                loan.SetOverdue(DateTimeOffset.UtcNow);
+            }
+        }
+
+        await _context.SaveChangesAsync();
+        
         return await _context.Loans
             .Where(l => l.MemberId == memberId)
             .OrderByDescending(l => l.CheckoutDate)

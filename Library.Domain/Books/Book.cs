@@ -39,6 +39,17 @@ public class Book : AggregateRoot
         _copies.Remove(copy);
     }
 
+    public void RemoveCopy()
+    {
+        var removeableCopies = _copies.Where(x => x.Status == BookCopyStatus.Available).ToList();
+        if (removeableCopies.Count == 0)
+            throw new InvalidOperationException("Cannot remove a copy that is not available.");
+        
+        // remove any of the given copies
+        var removedCopy = removeableCopies[0];
+        _copies.Remove(removedCopy);
+    }
+
     public bool HasAvailableCopy() => _copies.Any(c => c.Status == BookCopyStatus.Available);
     public BookCopy? GetAvailableCopy() => _copies.FirstOrDefault(c => c.Status == BookCopyStatus.Available);
 

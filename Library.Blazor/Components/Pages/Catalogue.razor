@@ -45,6 +45,7 @@
         <MudTh>Available</MudTh>
         <MudTh></MudTh>
         <MudTh></MudTh>
+        <MudTh></MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="Title">@context.Title</MudTd>
@@ -68,7 +69,15 @@
         <MudTd>
             <AuthorizeView Roles="Admin" Context="adminCtx">
                 <Authorized>
-                    <MudButton Size="Size.Small" OnClick="@(async () => await AddCopy(@context.Id))">Add Copy</MudButton>
+                    <MudButton Color="Color.Success" Size="Size.Small" OnClick="@(async () => await AddCopy(@context.Id))">Add Copy</MudButton>
+                    <MudButton Color="Color.Error" Size="Size.Small" OnClick="@(async () => await RemoveCopy(@context.Id))">Remove Copy</MudButton>
+                </Authorized>
+            </AuthorizeView>
+        </MudTd>
+        <MudTd>
+            <AuthorizeView Roles="Admin" Context="adminCtx">
+                <Authorized>
+                    <MudButton Color="Color.Error" Size="Size.Small" OnClick="@(async () => await RemoveBook(@context.Id))">Delete Book</MudButton>
                 </Authorized>
             </AuthorizeView>
         </MudTd>
@@ -119,6 +128,38 @@
         Snackbar.Add("Copy added successfully", Severity.Success);
         allBooks = await BookRepository.GetAllAsync();
         await Filter();
+    }
+    
+    private async Task RemoveCopy(Guid bookId)
+    {
+        try
+        {
+            await Mediator.Send(new RemoveCopyCommand(bookId));
+            Snackbar.Add("Copy removed successfully", Severity.Success);
+            allBooks = await BookRepository.GetAllAsync();
+            await Filter();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        
+    }
+
+    private async Task RemoveBook(Guid bookId)
+    {
+        try
+        {
+            await Mediator.Send(new RemoveBookCommand(bookId));
+            Snackbar.Add("Book removed successfully", Severity.Success);
+            allBooks = await BookRepository.GetAllAsync();
+            await Filter();
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        
     }
 
     private async Task Borrow(Guid bookId)

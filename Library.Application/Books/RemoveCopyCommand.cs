@@ -3,7 +3,7 @@ using MediatR;
 
 namespace Library.Application.Books;
 
-public record RemoveCopyCommand(Guid BookId, Guid BookCopyId) : IRequest<Guid>;
+public record RemoveCopyCommand(Guid BookId) : IRequest<Guid>;
 
 public class RemoveCopyHandler : IRequestHandler<RemoveCopyCommand, Guid>
 {
@@ -18,7 +18,7 @@ public class RemoveCopyHandler : IRequestHandler<RemoveCopyCommand, Guid>
         var book = await _bookRepository.GetByIdAsync(request.BookId);
         if (book is null)
             throw new InvalidOperationException($"Book with id {request.BookId} does not exist.");
-        book.RemoveCopy(request.BookCopyId);
+        book.RemoveCopy();
         await _bookRepository.SaveChangesAsync();
         return book.Id;
         
