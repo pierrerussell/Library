@@ -8,9 +8,11 @@ using Library.Blazor.Data;
 using Library.Blazor.Data.Repositories.Books;
 using Library.Blazor.Data.Repositories.Loans;
 using Library.Blazor.Data.Repositories.Members;
+using Library.Blazor.Data.Repositories.Reservations;
 using Library.Domain.Books;
 using Library.Domain.Loans;
 using Library.Domain.Members;
+using Library.Domain.Reservations;
 using MediatR;
 using MudBlazor.Services;
 
@@ -61,6 +63,7 @@ builder.Services.AddScoped<IBookRepository, BookRepository>();
 builder.Services.AddScoped<ILoanPolicyRepository, LoanPolicyRepository>();
 builder.Services.AddScoped<ILoanRepository, LoanRepository>();
 builder.Services.AddScoped<IPaymentRepository, PaymentRepository>();
+builder.Services.AddScoped<IReservationRepository, ReservationRepository>();
 var app = builder.Build();
 
 

@@ -1,0 +1,53 @@
+﻿@page "/my-reservations"
+@using Library.Domain.Books
+@using Library.Domain.Members
+@using Library.Domain.Reservations
+@using Microsoft.AspNetCore.Authorization
+@using MudBlazor
+@attribute [Authorize]
+@inject IReservationRepository ReservationRepository
+@inject IMemberRepository MemberRepository
+@inject AuthenticationStateProvider AuthenticationStateProvider
+@inject IBookRepository BookRepository
+@inject NavigationManager Navigation
+<MudText Typo="Typo.h4" Class="mb-4">My Reservations</MudText>
+
+<MudTable Items="@Reservations" Hover="true">
+    <HeaderContent>
+        <MudTh>Title</MudTh>
+        <MudTh>Reserved on</MudTh>
+        <MudTh>Status</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd>@Books[context.BookId].Title</MudTd>
+        <MudTd>@context.ReservationDate.DateTime.ToShortDateString()</MudTd>
+        <MudTd>
+            <MudChip T="string" Color="@(context.Status == ReservationStatus.Notified ? Color.Success : Color.Default)">
+                @context.Status
+            </MudChip>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private List<Reservation> Reservations { get; set; } = new();
+    private Dictionary<Guid, Book> Books { get; set; } = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity is not { IsAuthenticated: true })
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+            return;
+        }
+        var identityUser = Guid.Parse(authState.User.FindFirst(c => c.Type==System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
+        var member = await MemberRepository.GetByIdentityUserIdAsync(identityUser);
+        Reservations = await ReservationRepository.GetByMemberIdAsync(member!.Id);
+        
+        Books = (await BookRepository.GetAllAsync()).ToDictionary(b => b.Id);
+        
+        
+    }
+    
+}

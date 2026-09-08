@@ -22,27 +22,31 @@
 
         <div class="nav-item px-3">
             <NavLink class="nav-link" href="catalogue">
-                <span class="bi bi-plus-square-fill-nav-menu" aria-hidden="true"></span> Catalogue
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="my-loans">
-                <span class="bi bi-list-nested-nav-menu" aria-hidden="true"></span> My Loans
-            </NavLink>
-        </div>
-
-        <div class="nav-item px-3">
-            <NavLink class="nav-link" href="auth">
-                <span class="bi bi-lock-nav-menu" aria-hidden="true"></span> Auth Required
+                <MudIcon Icon="@Icons.Material.Filled.List"></MudIcon> Catalogue
             </NavLink>
         </div>
 
         <AuthorizeView>
             <Authorized>
                 <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="my-loans">
+                        <MudIcon Icon="@Icons.Material.Filled.LibraryBooks"></MudIcon> My Loans
+                    </NavLink>
+                </div>
+                <div class="nav-item px-3">
+                    <NavLink class="nav-link" href="my-reservations">
+                        <MudIcon Icon="@Icons.Material.Outlined.LibraryBooks"></MudIcon> My Reservations
+                    </NavLink>
+                </div>
+
+            </Authorized>
+        </AuthorizeView>
+        
+        <AuthorizeView>
+            <Authorized>
+                <div class="nav-item px-3">
                     <NavLink class="nav-link" href="profile">
-                        <span class="bi bi-person-fill-nav-menu" aria-hidden="true"></span> @context.User.Identity?.Name
+                        <MudIcon Icon="@Icons.Material.Filled.Person"></MudIcon> @context.User.Identity?.Name
                     </NavLink>
                 </div>
                 <div class="nav-item px-3">

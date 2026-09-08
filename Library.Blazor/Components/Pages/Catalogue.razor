@@ -2,6 +2,7 @@
 @using System.Security.Claims
 @using Library.Application.Books
 @using Library.Application.Loans
+@using Library.Application.Reservations
 @using Library.Domain.Books
 @using Library.Domain.Members
 @using MediatR
@@ -56,6 +57,10 @@
                     @if (context.HasAvailableCopy())
                     {
                         <MudButton Size="Size.Small" OnClick="@(async () => await Borrow(context.Id))">Borrow</MudButton> 
+                    }
+                    else
+                    {
+                        <MudButton Size="Size.Small" OnClick="@(async () => await Reserve(context.Id))">Reserve</MudButton> 
                     }
                 </Authorized>
             </AuthorizeView>
@@ -127,6 +132,23 @@
             var member = await MemberRepository.GetByIdentityUserIdAsync(Guid.Parse(identityUserId));
 
             await Mediator.Send(new CheckoutBookCommand(bookId, member!.Id));
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private async Task Reserve(Guid bookId)
+    {
+        try
+        {
+            var user = (await AuthenticationStateProvider.GetAuthenticationStateAsync()).User;
+            var identityUserId = user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (identityUserId is null)
+                throw new InvalidOperationException("User is not authenticated.");
+            var member = await MemberRepository.GetByIdentityUserIdAsync(Guid.Parse(identityUserId));
+            await Mediator.Send(new ReserveBookCommand(bookId, member!.Id));
         }
         catch (InvalidOperationException ex)
         {

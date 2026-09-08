@@ -6,6 +6,7 @@
 @inject IMemberRepository MemberRepository
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @rendermode InteractiveServer 
+@inject NavigationManager Navigation
 
 <MudText Typo="Typo.h4" Class="mb-4">My Profile</MudText>
 
@@ -35,6 +36,11 @@
     protected override async Task OnInitializedAsync()
     {
         var authState = await AuthenticationStateProvider.GetAuthenticationStateAsync();
+        if (authState.User.Identity is not { IsAuthenticated: true })
+        {
+            Navigation.NavigateTo("/", forceLoad: true);
+            return;
+        }
         var identityUserId = Guid.Parse(authState.User.FindFirst(c => c.Type == "sub"
         || c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
         member = await MemberRepository.GetByIdentityUserIdAsync(identityUserId);

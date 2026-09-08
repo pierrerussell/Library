@@ -1,6 +1,7 @@
 using Library.Domain.Books;
 using Library.Domain.Loans;
 using Library.Domain.Members;
+using Library.Domain.Reservations;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
 
@@ -13,8 +14,8 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
     public DbSet<Book> Books => Set<Book>();
     public DbSet<LoanPolicy> LoanPolicies => Set<LoanPolicy>();
     public DbSet<Loan> Loans => Set<Loan>();
-    
     public DbSet<Payment> Payments => Set<Payment>();
+    public DbSet<Reservation> Reservations => Set<Reservation>();
 
     
     protected override void OnModelCreating(ModelBuilder builder)
@@ -137,6 +138,25 @@ public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options
                     value => value.ToUnixTimeMilliseconds(),
                     value => DateTimeOffset.FromUnixTimeMilliseconds(value))
                 .IsRequired();
+        });
+
+        builder.Entity<Reservation>(b =>
+        {
+            b.ToTable("Reservations");
+            b.HasKey(r => r.Id);
+            b.Property(r => r.BookId)
+                .IsRequired();
+            b.Property(r => r.MemberId)
+                .IsRequired();
+            b.Property(r => r.ReservationDate)
+                .HasConversion(
+                    value => value.ToUnixTimeMilliseconds(),
+                    value => DateTimeOffset.FromUnixTimeMilliseconds(value))
+                .IsRequired();
+            b.Property(r => r.Status)
+                .IsRequired()
+                .HasConversion<string>();
+            b.Ignore(r => r.DomainEvents);
         });
 
     }
