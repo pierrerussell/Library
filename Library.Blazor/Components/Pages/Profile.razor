@@ -19,7 +19,7 @@
 {
     <MudPaper class="mt-4 mb-4 pa-4" Elevation="2">
         <MudText Typo="Typo.h6">Name: @memberDashboardDto.Member.Name</MudText>
-        <MudText Typo="Typo.body2">Name: @memberDashboardDto.Member.Email</MudText>
+        <MudText Typo="Typo.body2">Email: @memberDashboardDto.Member.Email</MudText>
         <MudText Typo="Typo.subtitle1" Class="mt-4">Interests</MudText>
         <MudTextField @bind-Value="newInterest" Label="Add interest" Immediate="true"
                       OnKeyDown="@(async e => { if (e.Key == "Enter") await AddInterest(); })" />
