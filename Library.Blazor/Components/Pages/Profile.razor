@@ -1,5 +1,9 @@
 ﻿@page "/profile"
+@using Library.Application.Members
+@using Library.Domain.Books
 @using Library.Domain.Members
+@using Library.Domain.Reservations
+@using MediatR
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
 @attribute [Authorize]
@@ -7,31 +11,95 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @rendermode InteractiveServer 
 @inject NavigationManager Navigation
-
+@inject IMediator Mediator
+@inject IBookRepository BookRepository
 <MudText Typo="Typo.h4" Class="mb-4">My Profile</MudText>
 
-@if (member is not null)
+@if (memberDashboardDto is not null && member is not null)
 {
-    <MudPaper Class="pa-4" Elevation="2">
-        @* <MudTextField @bind-Value="member.Name" Label="Name" Disabled="true" /> *@
-        @* <MudTextField @bind-Value="member.Email" Label="Email" Disabled="true" /> *@
-        @* *@
-        <MudText>@member.Name </MudText>
-        <MudText>@member.Email </MudText>
-
+    <MudPaper class="mt-4 mb-4 pa-4" Elevation="2">
+        <MudText Typo="Typo.h6">Name: @memberDashboardDto.Member.Name</MudText>
+        <MudText Typo="Typo.body2">Name: @memberDashboardDto.Member.Email</MudText>
         <MudText Typo="Typo.subtitle1" Class="mt-4">Interests</MudText>
-        @foreach (var interest in member.Interests)
-        {
-            <MudChip T="string" OnClose="@(() => RemoveInterest(interest))">@interest</MudChip>
-        }
         <MudTextField @bind-Value="newInterest" Label="Add interest" Immediate="true"
                       OnKeyDown="@(async e => { if (e.Key == "Enter") await AddInterest(); })" />
         <MudButton Variant="Variant.Filled" Class="mt-2" OnClick="@AddInterest">Add</MudButton>
     </MudPaper>
+    
+    <MudTabs Elevation="1" Rounded="true" ApplyEffectsToContainer="true" TabPanelsClass="pa-4">
+        <MudTabPanel Text="Active Loans">
+            <MudTable Items="@memberDashboardDto.ActiveLoans" Hover="true">
+                <HeaderContent>
+                    <MudTh>Title</MudTh><MudTh>Due</MudTh><MudTh>Status</MudTh><MudTh>Fee</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@books[context.BookId].Title</MudTd>
+                    <MudTd>@context.DueDate.DateTime.ToShortDateString()</MudTd>
+                    <MudTd>@context.Status</MudTd>
+                    <MudTd>@context.CalculateLateFee(DateTimeOffset.UtcNow)</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="History">
+            <MudTable Items="@memberDashboardDto.PastLoans" Hover="true">
+                <HeaderContent>
+                    <MudTh>Title</MudTh><MudTh>Checked Out</MudTh><MudTh>Returned</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@books[context.BookId].Title</MudTd>
+                    <MudTd>@context.CheckoutDate.DateTime.ToShortDateString()</MudTd>
+                    <MudTd>@context.ReturnDate?.DateTime.ToShortDateString()</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Reservations">
+            <MudTable Items="@memberDashboardDto.Reservations" Hover="true">
+                <HeaderContent>
+                    <MudTh>Title</MudTh><MudTh>Reserved</MudTh><MudTh>Status</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@books[context.BookId].Title</MudTd>
+                    <MudTd>@context.ReservationDate.DateTime.ToShortDateString()</MudTd>
+                    <MudTd>
+                        <MudChip T="string" Color="@(context.Status == ReservationStatus.Notified ? Color.Success : Color.Default)">
+                            @context.Status
+                        </MudChip>
+                    </MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Payments">
+            <MudTable Items="@memberDashboardDto.Payments" Hover="true">
+                <HeaderContent>
+                    <MudTh>Date</MudTh><MudTh>Reason</MudTh><MudTh>Amount</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Date.DateTime.ToShortDateString()</MudTd>
+                    <MudTd>@context.Description</MudTd>
+                    <MudTd>@context.Amount</MudTd>
+                </RowTemplate>
+            </MudTable>
+        </MudTabPanel>
+
+        <MudTabPanel Text="Interests">
+            @foreach (var interest in memberDashboardDto.Member.Interests)
+            {
+                <MudChip T="string">@interest</MudChip>
+            }
+        </MudTabPanel>
+    </MudTabs>
+    
 }
+
 @code {
     private Member? member;
     private string newInterest = "";
+    private MemberDashboardDto? memberDashboardDto;
+    private Dictionary<Guid, Book> books = new();
+    
 
     protected override async Task OnInitializedAsync()
     {
@@ -45,7 +113,8 @@
         || c.Type == System.Security.Claims.ClaimTypes.NameIdentifier)!.Value);
         member = await MemberRepository.GetByIdentityUserIdAsync(identityUserId);
         
-        
+        memberDashboardDto = await Mediator.Send(new GetMemberDashboardQuery(member!.Id));
+        books = (await BookRepository.GetAllAsync()).ToDictionary(b => b.Id);
     }
     private async Task AddInterest()
     {
