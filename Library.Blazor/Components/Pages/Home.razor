@@ -1,7 +1,268 @@
-﻿@page "/"
+@page "/"
+@using MudBlazor
 
 <PageTitle>Home</PageTitle>
 
-<h1>Hello, world!</h1>
+<MudText Typo="Typo.h3" Class="mb-2">Library App — Take-Home Assignment</MudText>
+<MudText Typo="Typo.body1" Class="mb-6">
+    I haven't beeen to a library in a while so there were a few gaps in my understanding of how libraries work
+    that I didn't realise until it was a bit too late haha. Like for example I coded it such that you cant return
+    a book until you've paid the late fee, but only when I was doing the delpoyment that I realised 'wait wouldnt
+    they want you to return it then just hound you for the fee later'. Anyway on this page you'll find a brief explanation
+    about the application.
+</MudText>
 
-Welcome to your new app.
+<MudText Typo="Typo.body1" Class="mb-6">
+    This solution noticeably does not have any Controllers. That's because the UI is built with Blazor Server, which 
+    is a Microsoft web UI framework where a page's rendering logic runs server side, and UI updates are pushed using websockets
+    instead of shipping a separate JavaScript single-page app that talks to a JSON API. So the C# code-behind of the 'frontend' 
+    calls the Application layer's MediatR handlers directly. &nbsp;
+    If you needed a real FE framework not much would have to change - Just need to port the frontend stuff to whatever FE framework
+    and then write up controllers that call the CQRS handlers through network calls.
+</MudText>
+
+<MudDivider Class="mb-6"/>
+
+<MudText Typo="Typo.h4" Class="mb- ">Architecture: Clean Architecture + DDD</MudText>
+<MudText Typo="Typo.body1" Class="mb-3">
+    The solution is split into three projects, each a layer, with dependencies only pointing inward:
+</MudText>
+<MudPaper Class="pa-4 mb-3" Elevation="1">
+    <MudText Typo="Typo.h6">Library.Domain</MudText>
+    <MudText Typo="Typo.body2">
+        Plain C#, no framework or infrastructure dependencies. Business rules (like "you cant remove a book that 
+        still has copies on loan") are encapsulated in domain aggregates, with their own invariants and repository interfaces.
+    </MudText>
+    <ul>
+        <li><b>Book</b> (aggregate root) owns its <b>BookCopy</b> entities. Copies can only be added/removed
+            through the book (<code>AddCopy()</code>, <code>RemoveCopy()</code>), and removal is refused unless
+            a copy is currently <code>Available</code> — you can't yank a book out from under someone who has it
+            on loan.
+        </li>
+        <li><b>Loan</b> encapsulates checkout → due date → return/overdue → late-fee calculation. A loan
+            snapshots its loan period and fee-per-day <i>at checkout time</i> from whatever the latest
+            <b>LoanPolicy</b> was, rather than pointing at a live policy, so changing the policy later never
+            rewrites the terms of a loan already in progress.
+        </li>
+        <li><b>LoanPolicy</b> is an append-only, versioned record of "loan period + late fee per day, effective
+            from a given date" — a simple history rather than a single mutable settings row.
+        </li>
+        <li><b>Member</b> is its own aggregate root (profile name/email/interests), deliberately <i>not</i>
+            holding collections of its Loans/Reservations/Payments. Those are independent aggregates linked only
+            by a <code>MemberId</code>, which keeps each aggregate's invariants — and each save transaction —
+            small and focused.
+        </li>
+        <li><b>Reservation</b> has its own lifecycle: <code>Pending → Notified → Fulfilled</code> or
+            <code>Cancelled</code>.
+        </li>
+        <li><b>Payment</b> is a simple ledger entry, optionally tagged with the loan it's paying off.</li>
+        <li>A shared <b>Money</b> value object wraps monetary amounts everywhere fees/payments are handled.</li>
+    </ul>
+</MudPaper>
+<MudPaper Class="pa-4 mb-3" Elevation="1">
+    <MudText Typo="Typo.h6">Library.Application</MudText>
+    <MudText Typo="Typo.body2">
+        I used CQRS for the app layer of this app. Every use case is a small, single-purpose
+        command/query + handler pair — <code>AddBookCommand</code>, <code>CheckoutBookCommand</code>,
+        <code>ReturnBookCommand</code>, <code>ReserveBookCommand</code>, <code>RecordPaymentCommand</code>,
+        <code>GetMemberDashboardQuery</code>, and so on — that orchestrate the domain aggregates and repositories.
+        Interesting side-effects are modelled as domain events rather than hard-coded chains: returning a book
+        raises a <code>BookReturnedEvent</code> inside the <code>Loan</code> aggregate, which the handler
+        republishes as a <code>BookReturnedNotification</code>; a separate handler
+        (<code>NotifyNextReservationHandler</code>) reacts to that notification by flipping every pending
+        reservation on that book to <code>Notified</code> — the return flow and the reservation flow never call
+        each other directly.
+    </MudText>
+</MudPaper>
+<MudPaper Class="pa-4 mb-3" Elevation="1">
+    <MudText Typo="Typo.h6">Library.Blazor</MudText>
+    <MudText Typo="Typo.body2">
+        The composition root and infrastructure layer, and also the UI: a Blazor Server app (interactive server
+        render mode) using MudBlazor for components, ASP.NET Core Identity for authentication (cookie-based,
+        email + password), and EF Core over SQLite for persistence, with one repository implementation per
+        domain repository interface. Pages talk to the Application layer purely through
+        <code>IMediator.Send(...)</code> — there's no separate REST/HTTP API sitting between "frontend" and
+        "backend" here; see the assumptions below for why that's fine for this exercise.
+    </MudText>
+    <MudText Typo="Typo.body2">
+        Actually if I could've I would've moved the Entity Framework Core (the ORM of .NET) stuff into a seperate project
+        called Library.EfCore or something but the solution template came with the files already pre created and it would've
+        been a pain to move everything so I left them in the /Data of Library.Blazor. But the real clean architecture would decouple
+        this layer. But for simplicity and to quickly get this small project out I just left it.
+    </MudText>
+</MudPaper>
+
+<MudDivider Class="mb-6"/>
+
+<MudText Typo="Typo.h4" Class="mb-3">Authentication &amp; identity</MudText>
+<MudText Typo="Typo.body1" Class="mb-3">
+    I used the built in <b>ASP.NET Core Identity</b> for auth registered via <code>AddIdentityCore&lt;ApplicationUser&gt;()</code> 
+    with EF Core as its storage provider. That means users, roles, and password hashes live in the same SQLite database 
+    as everything else, in Identity's standard <code>AspNetUsers</code>/<code>AspNetRoles</code> tables, and the 
+    self-service registration, login, email-confirmation all comes with it built in.
+</MudText>
+
+<MudDivider Class="mb-6"/>
+
+<MudText Typo="Typo.h4" Class="mb-3">Pages &amp; features</MudText>
+
+<MudText Typo="Typo.h5" Class="mt-4 mb-2">Catalogue — <code>/catalogue</code></MudText>
+<MudText Typo="Typo.body1">
+    Open to everyone, including anonymous visitors. A search box filters the list by title.
+    Signed-in members see a <b>Borrow</b> button when a copy is free, or a <b>Reserve</b> button when every copy
+    is currently on loan. Admins additionally get an inline "Add a Book" form and, per row, <b>Add Copy</b>,
+    <b>Remove Copy</b> (refused if no copy of that title is currently available), and <b>Delete Book</b>
+    (refused if any copy is on loan) — this is book catalogue management: add/remove books and copies, with
+    guardrails so you can't delete stock that's actually out with a borrower.
+</MudText>
+
+<MudText Typo="Typo.h5" Class="mt-4 mb-2">My Loans — <code>/my-loans</code></MudText>
+<MudText Typo="Typo.body1">
+    Lists everything you've borrowed: checkout date, due date, a status chip (Active / Overdue / Returned),
+    the late fee calculated live as of today, and the outstanding fee after subtracting any payments already
+    made. <b>Return</b> hands the book back — but is refused until any owed late fee is paid in full first, via
+    the <b>Pay Fee</b> button. Symmetrically, <b>Borrow</b>/checkout on the Catalogue page is refused while you
+    have <i>any</i> active loan with an unpaid fee — so a fee follows you around until it's settled, but only
+    blocks you at the two natural chokepoints (borrowing more, or giving that specific book back). This is the
+    lending/returning/late-fee/day-tracking use case.
+</MudText>
+
+<MudText Typo="Typo.h5" Class="mt-4 mb-2">My Reservations — <code>/my-reservations</code></MudText>
+<MudText Typo="Typo.body1">
+    Reserving a title is only offered when it has zero available copies. A reservation starts
+    <code>Pending</code>. The moment <i>any</i> copy of that book is returned, every pending reservation on that
+    title flips to <code>Notified</code> at once — shown here as a green status chip. From this page you can
+    <b>Fulfil Reservation</b> (completes the checkout for you, once a copy is actually free) or
+    <b>Cancel Reservation</b> at any time. Because everyone waiting is notified together rather than in strict
+    queue order, whoever clicks Fulfil first gets the copy; this is deliberately the simplest version of
+    "reserve + notify" that still demonstrates the full lifecycle — see the limitations below for what a
+    production version would add.
+</MudText>
+
+<MudText Typo="Typo.h5" Class="mt-4 mb-2">Profile — <code>/profile</code></MudText>
+<MudText Typo="Typo.body1">
+    Name/email header, an "add interest" box, and a tabbed dashboard — <b>Active Loans</b>, <b>History</b> (past/returned loans), 
+    <b>Reservations</b>, <b>Payments</b>, and <b>Interests</b> — all sourced from a single <code>GetMemberDashboardQuery</code> 
+    so a member's whole relationship with the library is visible in one place. This is the user-management use case: profile,
+    history, interests, and payments together.
+</MudText>
+
+<MudText Typo="Typo.h5" Class="mt-4 mb-2">Admin → Loan Policy — <code>/admin/loan-policy</code></MudText>
+<MudText Typo="Typo.body1">
+    Lets an admin add a new policy version (loan period in days, late fee per day, effective date) and shows the
+    full version history below it. Existing loans are unaffected by a new version — only checkouts made after it
+    takes effect pick up the new terms.
+</MudText>
+
+<MudText Typo="Typo.h5" Class="mt-4 mb-2">Admin → Members — <code>/admin/members</code></MudText>
+<MudText Typo="Typo.body1">
+    A flat directory of every member's name and email
+</MudText>
+
+<MudDivider Class="mb-6 mt-6"/>
+
+<MudText Typo="Typo.h4" Class="mb-3">Assumptions &amp; known limitations</MudText>
+<MudText Typo="Typo.body1" Class="mb-3">
+    Here's where i explain the corners i cut/limitations i made for myself and what id do if i had more time (or if ppl were actually paying to use this)
+</MudText>
+<ol>
+    <li class="mb-2">A single Blazor Server app plays both "frontend" and "backend": MediatR command/query
+        handlers stand in for a services/API layer, called in-process rather than over HTTP. The assignment asks
+        for the concepts of frontend, backend, and database to be present, not necessarily a network boundary
+        between the first two — so I kept it to one deployable for simplicity.
+    </li>
+    <li class="mb-2">Reserving is only possible once a title has zero available copies — you can't "reserve"
+        something you could just borrow outright.
+    </li>
+    <li class="mb-2">Returning a book is blocked until any late fee on it is paid in full; checking out a new
+        book is blocked while any active loan has an unpaid fee. If I could do it again i would make it such that
+        you can return the book, but you need to pay off the loan before borrowing more.
+    </li>
+    <li class="mb-2">Overdue status is computed lazily, refreshed whenever a member's loans are loaded (e.g. on
+        My Loans or the Profile dashboard), rather than by a background job sweeping the database on a timer.
+        On a real project Id have some sort of background job that periodically updates the statuses
+    </li>
+    <li class="mb-2">"Notification when available" is implemented today as a structured server log line plus the
+        status chip flipping to <code>Notified</code> on the Reservations/Profile pages — there's no email or
+        push notification wired up. All pending reservers on a title are notified simultaneously rather than
+        strictly by queue order, and checkout doesn't reserve the freed copy for the notified member —
+        first to click Fulfil wins, and if you lose that race you just wait for the next copy to free up.
+        I just did this to demonstrate that for a given event multiple people can receive the notification.
+    </li>
+    <li class="mb-2">Demo data (see below) is seeded once at first startup, guarded by "if no books exist yet"
+        checks, so restarting the app never duplicates it.
+    </li>
+</ol>
+
+<MudDivider Class="mb-6 mt-6"/>
+
+<MudText Typo="Typo.h4" Class="mb-3">Try it yourself - seeded accounts</MudText>
+<MudAlert Severity="Severity.Warning" Class="mb-4">
+    Demo credentials only, shown in plaintext deliberately — every account uses the password
+    <code>Password123!</code>.
+</MudAlert>
+<MudSimpleTable Elevation="1" Class="mb-4">
+    <thead>
+        <tr>
+            <th>Role</th>
+            <th>Email</th>
+            <th>Password</th>
+            <th>What to try</th>
+        </tr>
+    </thead>
+    <tbody>
+        <tr>
+            <td>Admin</td>
+            <td>admin@gmail.com</td>
+            <td>Password123!</td>
+            <td>Add/remove books &amp; copies, manage loan policy versions, view the member list.</td>
+        </tr>
+        <tr>
+            <td>Member</td>
+            <td>user1@gmail.com</td>
+            <td>Password123!</td>
+            <td>
+                Has an overdue loan on <i>Clean Code</i> with an unpaid late fee — try Pay Fee then Return on My
+                Loans, and notice Borrow gets refused on the Catalogue page until it's settled.
+            </td>
+        </tr>
+        <tr>
+            <td>Member</td>
+            <td>user2@gmail.com</td>
+            <td>Password123!</td>
+            <td>
+                Has a <code>Pending</code> reservation on <i>The Pragmatic Programmer</i>, which is still out on
+                loan to user3 — check My Reservations, then log in as user3 and return it to watch the
+                reservation flip to <code>Notified</code>.
+            </td>
+        </tr>
+        <tr>
+            <td>Member</td>
+            <td>user3@gmail.com</td>
+            <td>Password123!</td>
+            <td>
+                Currently holds <i>The Pragmatic Programmer</i> (not yet due), and has a fully paid-off, returned
+                loan on <i>Domain-Driven Design</i> — check the Profile page's History and Payments tabs, and
+                the Interests tab for a seeded interest tag.
+            </td>
+        </tr>
+    </tbody>
+</MudSimpleTable>
+
+<MudDivider Class="mb-6 mt-6"/>
+
+<MudText Typo="Typo.h4" Class="mb-3">If you actually want to run it locally</MudText>
+<MudText Typo="Typo.body1" Class="mb-2">Prerequisite: .NET 10 SDK.</MudText>
+<MudText Typo="Typo.body1" Class="mb-2">From the repository root:</MudText>
+<MudPaper Class="pa-3 mb-3" Elevation="0" Style="background-color: dimgrey; font-family: monospace; color: white;">
+    dotnet run --project Library.Blazor
+</MudPaper>
+<MudText Typo="Typo.body1">
+    The repository ships with an already-migrated SQLite database
+    (<code>Library.Blazor/Data/app.db</code>) and seeds the accounts above (plus the demo catalogue/loans/
+    reservations/payments described above) automatically on first run against an empty database. If you delete
+    that database file to start clean, apply the EF Core migrations before running again:
+</MudText>
+<MudPaper Class="pa-3 mt-2" Elevation="0" Style="background-color: dimgrey; font-family: monospace; color: white;">
+    dotnet ef database update --project Library.Blazor
+</MudPaper>
