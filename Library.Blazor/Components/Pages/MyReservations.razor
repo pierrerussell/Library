@@ -1,7 +1,9 @@
 ﻿@page "/my-reservations"
+@using Library.Application.Reservations
 @using Library.Domain.Books
 @using Library.Domain.Members
 @using Library.Domain.Reservations
+@using MediatR
 @using Microsoft.AspNetCore.Authorization
 @using MudBlazor
 @attribute [Authorize]
@@ -10,6 +12,8 @@
 @inject AuthenticationStateProvider AuthenticationStateProvider
 @inject IBookRepository BookRepository
 @inject NavigationManager Navigation
+@inject IMediator Mediator
+@inject ISnackbar Snackbar
 <MudText Typo="Typo.h4" Class="mb-4">My Reservations</MudText>
 
 <MudTable Items="@Reservations" Hover="true">
@@ -17,6 +21,7 @@
         <MudTh>Title</MudTh>
         <MudTh>Reserved on</MudTh>
         <MudTh>Status</MudTh>
+        <MudTh></MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd>@Books[context.BookId].Title</MudTd>
@@ -25,6 +30,10 @@
             <MudChip T="string" Color="@(context.Status == ReservationStatus.Notified ? Color.Success : Color.Default)">
                 @context.Status
             </MudChip>
+        </MudTd>
+        <MudTd>
+            <MudButton OnClick="@(() => FulfillReservation(context))" Color="Color.Success" Size="Size.Small" Disabled="@(!Books[context.BookId].HasAvailableCopy() || context.Status == ReservationStatus.Fulfilled || context.Status == ReservationStatus.Cancelled)">Fulfil Reservation</MudButton>
+            <MudButton OnClick="@(() => CancelReservation(context))" Color="Color.Error" Size="Size.Small" Disabled="@(context.Status == ReservationStatus.Cancelled || context.Status == ReservationStatus.Fulfilled)">Cancel Reservation</MudButton>
         </MudTd>
     </RowTemplate>
 </MudTable>
@@ -47,6 +56,36 @@
         
         Books = (await BookRepository.GetAllAsync()).ToDictionary(b => b.Id);
         
+        
+    }
+    
+    private async Task CancelReservation(Reservation reservation)
+    {
+        try
+        {
+            await Mediator.Send(new CancelReservationCommand(reservation.Id));
+            Snackbar.Add($"Reservation {reservation.Id} has been cancelled.", Severity.Success);
+            Reservations = await ReservationRepository.GetByMemberIdAsync(reservation.MemberId);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+        
+    }
+    
+    private async Task FulfillReservation(Reservation reservation)
+    {
+        try
+        {
+            await Mediator.Send(new FulfillReservationCommand(reservation.Id));
+            Snackbar.Add($"Reservation {reservation.Id} has been fulfilled.", Severity.Success);
+            Reservations = await ReservationRepository.GetByMemberIdAsync(reservation.MemberId);
+        }
+        catch (InvalidOperationException ex)
+        {
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
         
     }
     

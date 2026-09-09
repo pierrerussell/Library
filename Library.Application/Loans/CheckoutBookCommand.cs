@@ -46,7 +46,7 @@ public class CheckoutBookHandler : IRequestHandler<CheckoutBookCommand, Guid>
             var paymentsMadeForLoan = memberPayments.Where(p => p.LoanId == memberLoan.Id).ToList();
             if (paymentsMadeForLoan.Sum(p => p.Amount.Amount) < outstandingFee.Amount)
             {
-                throw new InvalidOperationException("Member has outstanding loan(s) not paid.");
+                throw new InvalidOperationException("You has outstanding loan(s) not paid.");
             }
         }
         

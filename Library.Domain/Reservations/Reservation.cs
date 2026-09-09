@@ -30,10 +30,11 @@ public class Reservation : AggregateRoot
 
     public void NotifyAvailable()
     {
-        if (Status != ReservationStatus.Pending)
-            throw new InvalidOperationException("Reservation is not pending.");
-        Status = ReservationStatus.Notified;
-        RaiseDomainEvent(new ReservationAvailableEvent(Id, BookId, MemberId));
+        if (Status == ReservationStatus.Pending)
+        {
+            Status = ReservationStatus.Notified;
+            RaiseDomainEvent(new ReservationAvailableEvent(Id, BookId, MemberId));
+        }
     }
     
     public void Fulfill()

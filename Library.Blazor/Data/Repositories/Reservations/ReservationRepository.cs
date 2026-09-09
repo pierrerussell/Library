@@ -29,6 +29,12 @@ public class ReservationRepository : IReservationRepository
         return await _context.Reservations.Where(x => x.MemberId == memberId).ToListAsync();
     }
 
+    public async Task<List<Reservation>> GetAllReservationsOfBookAsync(Guid bookId)
+    {
+        return await _context.Reservations.Where(x => x.BookId == bookId).ToListAsync();
+        
+    }
+
     public async Task<List<Reservation>> GetAllActiveAsync()
     {
         return await _context.Reservations.Where(x => x.Status == ReservationStatus.Pending).ToListAsync();

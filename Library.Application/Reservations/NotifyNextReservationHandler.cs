@@ -21,23 +21,30 @@ public class NotifyNextReservationHandler : INotificationHandler<BookReturnedNot
     
     public async Task Handle(BookReturnedNotification notification, CancellationToken cancellationToken)
     {
-        var reservation = await _reservationRepository.GetOldestPendingForBookAsync(notification.BookId);
-        if (reservation is null) return;
-        
-        reservation.NotifyAvailable();
+        // notify everyone who has a reservation on the book. first come first serve
+        var reservations = await _reservationRepository.GetAllReservationsOfBookAsync(notification.BookId);
+        if (!reservations.Any()) return;
 
-        foreach (var domainEvent in reservation.DomainEvents)
+        foreach (var reservation in reservations)
         {
-            switch (domainEvent)
+            reservation.NotifyAvailable();
+            
+            foreach (var domainEvent in reservation.DomainEvents)
             {
-                case ReservationAvailableEvent e:
-                    await _publisher.Publish(
-                        new ReservationAvailableNotification(e.ReservationId, e.BookId, e.MemberId), 
-                        cancellationToken);
-                    break;
+                switch (domainEvent)
+                {
+                    case ReservationAvailableEvent e:
+                        await _publisher.Publish(
+                            new ReservationAvailableNotification(e.ReservationId, e.BookId, e.MemberId), 
+                            cancellationToken);
+                        break;
+                }
+                
             }
+            reservation.ClearDomainEvents();
         }
-        reservation.ClearDomainEvents();
+
+        
         await _reservationRepository.SaveChangesAsync();
     }
 }

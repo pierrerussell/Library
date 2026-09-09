@@ -23,9 +23,11 @@ public class ReserveBookHandler : IRequestHandler<ReserveBookCommand, Guid>
         if (book.HasAvailableCopy())
             throw new InvalidOperationException("Reservation not needed - copies available.");
         
-        // check if member already has a reservation for this book
+        // check if member already has a reservation for this book that is still active
         var memberReservations = await _reservationRepository.GetByMemberIdAsync(request.MemberId);
-        if (memberReservations.Any(r => r.BookId == request.BookId))
+        if (memberReservations.Any(r => 
+                r.BookId == request.BookId &&
+                r.Status == ReservationStatus.Pending))
             throw new InvalidOperationException("Member already has a reservation for this book.");
         
         var reservation = new Reservation(request.BookId, request.MemberId, DateTimeOffset.UtcNow);
